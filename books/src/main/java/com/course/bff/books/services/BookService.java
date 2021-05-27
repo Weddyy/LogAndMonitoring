@@ -3,29 +3,25 @@ package com.course.bff.books.services;
 import com.course.bff.books.models.Book;
 import com.course.bff.books.requests.CreateBookCommand;
 import com.course.bff.books.responses.AuthorResponse;
-import com.google.gson.Gson;
-import org.asynchttpclient.AsyncHttpClient;
-import org.asynchttpclient.DefaultAsyncHttpClientConfig;
-import org.asynchttpclient.Dsl;
-import org.asynchttpclient.ListenableFuture;
-import org.asynchttpclient.Request;
-import org.asynchttpclient.RequestBuilder;
-import org.asynchttpclient.Response;
-import org.asynchttpclient.util.HttpConstants;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
+import org.springframework.web.client.RestTemplate;
 
 @Component
 public class BookService {
     @Value("${authorService}")
     private String authorService;
+
+    @Autowired
+    private RestTemplate restTemplate;
 
     private final ArrayList<Book> books;
 
@@ -42,7 +38,7 @@ public class BookService {
     }
 
     public Book create(CreateBookCommand createBookCommand) {
-        Optional<AuthorResponse> authorSearch = getAutor(createBookCommand.getAuthorId());
+        Optional<AuthorResponse> authorSearch = getAuthor(createBookCommand.getAuthorId());
         if (authorSearch.isEmpty()) {
             throw new RuntimeException("Author isn't found");
         }
@@ -56,27 +52,14 @@ public class BookService {
         return book;
     }
 
-    private Optional<AuthorResponse> getAutor(UUID authorId) {
-        DefaultAsyncHttpClientConfig.Builder clientBuilder = Dsl.config().setConnectTimeout(500);
-        AsyncHttpClient client = Dsl.asyncHttpClient(clientBuilder);
-        Request socketRequest = new RequestBuilder(HttpConstants.Methods.GET)
-                .setUrl(authorService + "/api/v1/authors/" + authorId.toString())
-                .build();
+    private Optional<AuthorResponse> getAuthor(UUID authorId) {
+        String url = authorService + "/api/v1/authors/" + authorId.toString();
+        ResponseEntity<AuthorResponse> entity = restTemplate.getForEntity(url, AuthorResponse.class);
 
-        ListenableFuture<Response> socketFuture = client.executeRequest(socketRequest);
-        try {
-            Response response = socketFuture.get();
-            if (response.getStatusCode() != HttpStatus.OK.value()) {
-                return Optional.empty();
-            }
-
-            AuthorResponse authorResponse = new Gson()
-                    .fromJson(response.getResponseBody(), AuthorResponse.class);
-
-            return Optional.of(authorResponse);
-
-        } catch (InterruptedException | ExecutionException e) {
+        if (entity.getStatusCode() != HttpStatus.OK) {
             return Optional.empty();
         }
+
+        return Optional.ofNullable(entity.getBody());
     }
 }

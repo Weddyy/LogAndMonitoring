@@ -1,5 +1,7 @@
 package com.course.bff.authors.controlles;
 
+import brave.Span;
+import brave.Tracer;
 import com.course.bff.authors.models.Author;
 import com.course.bff.authors.requests.CreateAuthorCommand;
 import com.course.bff.authors.responses.AuthorResponse;
@@ -42,10 +44,14 @@ public class AuthorController {
     private final static Logger logger = LoggerFactory.getLogger(AuthorController.class);
     private final AuthorService authorService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final Tracer tracer;
 
-    public AuthorController(AuthorService authorService, RedisTemplate<String, Object> redisTemplate) {
+    public AuthorController(AuthorService authorService,
+                            RedisTemplate<String, Object> redisTemplate,
+                            Tracer tracer) {
         this.authorService = authorService;
         this.redisTemplate = redisTemplate;
+        this.tracer = tracer;
     }
 
     @GetMapping()
@@ -83,10 +89,13 @@ public class AuthorController {
 
     private void sendPushNotification(AuthorResponse authorResponse) {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        Span redisSpan = tracer.nextSpan().name("redis").start();
         try {
             redisTemplate.convertAndSend(redisTopic, gson.toJson(authorResponse));
         } catch (Exception e) {
             logger.error("Push Notification Error", e);
+        } finally {
+            redisSpan.finish();
         }
     }
 

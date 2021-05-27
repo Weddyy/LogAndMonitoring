@@ -1,19 +1,13 @@
 package com.course.bff.books.controlles;
 
+import brave.Span;
+import brave.Tracer;
 import com.course.bff.books.models.Book;
 import com.course.bff.books.requests.CreateBookCommand;
 import com.course.bff.books.responses.BookResponse;
 import com.course.bff.books.services.BookService;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.asynchttpclient.AsyncHttpClient;
-import org.asynchttpclient.DefaultAsyncHttpClientConfig;
-import org.asynchttpclient.Dsl;
-import org.asynchttpclient.ListenableFuture;
-import org.asynchttpclient.Request;
-import org.asynchttpclient.RequestBuilder;
-import org.asynchttpclient.Response;
-import org.asynchttpclient.util.HttpConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -39,13 +33,17 @@ public class BookController {
     private final static Logger logger = LoggerFactory.getLogger(BookController.class);
     private final BookService bookService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final Tracer tracer;
 
     @Value("${redis.topic}")
     private String redisTopic;
 
-    public BookController(BookService bookService, RedisTemplate<String, Object> redisTemplate) {
+    public BookController(BookService bookService,
+                          RedisTemplate<String, Object> redisTemplate,
+                          Tracer tracer) {
         this.bookService = bookService;
         this.redisTemplate = redisTemplate;
+        this.tracer = tracer;
     }
 
     @GetMapping()
@@ -83,10 +81,14 @@ public class BookController {
 
     private void sendPushNotification(BookResponse bookResponse) {
         Gson gson = new GsonBuilder().setPrettyPrinting().create();
+        Span redisSpan = tracer.nextSpan().name("redis").start();
+
         try {
             redisTemplate.convertAndSend(redisTopic, gson.toJson(bookResponse));
         } catch (Exception e) {
             logger.error("Push Notification Error", e);
+        } finally {
+            redisSpan.finish();
         }
     }
 
