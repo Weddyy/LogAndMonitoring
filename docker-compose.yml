@@ -3,17 +3,23 @@ services:
   authors:
     image: estoyanov/bff-authors-service:1.0
     container_name: bff-authors-service
+    volumes:
+      - ~/test/logs/authors/:/log/
     ports:
       - 8081:8081
     networks:
       - mynet
+
   books:
     image: estoyanov/bff-books-service:1.0
     container_name: bff-books-service
+    volumes:
+      - ~/test/logs/books/:/log/
     ports:
       - 8082:8082
     networks:
       - mynet
+
   web-sockets:
     image: estoyanov/bff-web-sockets-service:1.0
     container_name: bff-web-sockets-service
@@ -21,6 +27,7 @@ services:
       - 8083:8083
     networks:
       - mynet
+
   redis:
     image: redis:latest
     container_name: bff-redis
@@ -42,6 +49,41 @@ services:
     container_name: bff-zipkin-service
     ports:
       - 9411:9411
+    networks:
+      - mynet
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.2.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    ports:
+      - 9200:9200
+      - 9300:9300
+    networks:
+      - mynet
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.2.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - 5601:5601
+    networks:
+      - mynet
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.2.0
+    container_name: filebeat
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ~/test/logs/books/:/logs/books/
+      - ~/test/logs/authors/:/logs/authors/
+    environment:
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
     networks:
       - mynet
 
