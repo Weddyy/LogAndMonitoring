@@ -1,0 +1,14 @@
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['cadvisor:8080']
+  - job_name: spring-actuator
+    scrape_interval: 5s
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - bff-books-service:8082
+global:
+  scrape_interval:     15s

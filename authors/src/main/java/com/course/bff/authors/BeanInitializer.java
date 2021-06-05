@@ -1,4 +1,4 @@
-package com.course.bff.books;
+package com.course.bff.authors;
 
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,11 +12,6 @@ public class BeanInitializer {
 
   @Value("${spring.application.name}")
   private String appName;
-
-  @Bean
-  public RestTemplate traceAsyncRestTemplate() {
-    return new RestTemplate();
-  }
 
   @Bean
   MeterRegistryCustomizer<MeterRegistry> metricsCommonTags() {
